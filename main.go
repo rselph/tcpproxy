@@ -71,16 +71,18 @@ func halfPipe(wg *sync.WaitGroup, src net.Conn, dst net.Conn) {
 	for {
 		n, err := src.Read(buf)
 		if err != nil {
-			if !errors.Is(err, io.EOF) {
+			if !errors.Is(err, io.EOF) && !errors.Is(err, net.ErrClosed) {
 				fmt.Println("Read:", err)
 			}
+			dst.Close()
 			return
 		}
 		_, err = dst.Write(buf[:n])
 		if err != nil {
-			if !errors.Is(err, io.EOF) {
+			if !errors.Is(err, io.EOF) && !errors.Is(err, net.ErrClosed) {
 				fmt.Println("Write:", err)
 			}
+			src.Close()
 			return
 		}
 	}
