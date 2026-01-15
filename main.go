@@ -45,14 +45,11 @@ func main() {
 }
 
 func handleConnection(clientConn net.Conn, forwardAddr string) {
-	defer clientConn.Close()
-
 	serverConn, err := net.Dial("tcp", forwardAddr)
 	if err != nil {
 		fmt.Println("Connect:", err)
 		return
 	}
-	defer serverConn.Close()
 
 	fmt.Println("Proxying", clientConn.RemoteAddr(), "<->", serverConn.RemoteAddr())
 
@@ -67,23 +64,10 @@ func handleConnection(clientConn net.Conn, forwardAddr string) {
 
 func halfPipe(wg *sync.WaitGroup, src net.Conn, dst net.Conn) {
 	defer wg.Done()
-	buf := make([]byte, 65536)
-	for {
-		n, err := src.Read(buf)
-		if err != nil {
-			if !errors.Is(err, io.EOF) && !errors.Is(err, net.ErrClosed) {
-				fmt.Println("Read:", err)
-			}
-			dst.Close()
-			return
-		}
-		_, err = dst.Write(buf[:n])
-		if err != nil {
-			if !errors.Is(err, io.EOF) && !errors.Is(err, net.ErrClosed) {
-				fmt.Println("Write:", err)
-			}
-			src.Close()
-			return
-		}
+	defer dst.Close()
+
+	_, err := io.CopyBuffer(dst, src, make([]byte, 64*1024))
+	if err != nil && !errors.Is(err, net.ErrClosed) {
+		fmt.Println(err)
 	}
 }
